@@ -29,32 +29,26 @@ steps:
     entrypoint:
       - /busybox/sh
       - -c
-      - |
+      - >-
         set -euo pipefail
-        : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
-
-        workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
-        dockerfile="$workspace_dir/apps/api/Dockerfile.api"
-        if [ ! -f "$dockerfile" ]; then
-          echo "Dockerfile not found at $dockerfile" >&2
-          exit 1
-        fi
-
-        mkdir -p /cache/kaniko/pma-api
-
-        /kaniko/executor \
-          --context "dir://$workspace_dir/apps/api" \
-          --dockerfile "$dockerfile" \
-          --destination "$REGISTRY_ENDPOINT/pma-api:$CI_COMMIT_SHA" \
-          --digest-file .image-digest-api \
-          --cache-dir /cache/kaniko/pma-api \
-          --cache=true \
-          --cache-repo "$REGISTRY_ENDPOINT/cache/pma-api" \
-          --cache-ttl=168h \
-          --push-retry=3 \
-          --image-download-retry=3 \
-          --cleanup \
-          --insecure
+        && : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
+        && workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
+        && dockerfile="$workspace_dir/apps/api/Dockerfile.api"
+        && [ -f "$dockerfile" ] || { echo "Dockerfile not found at $dockerfile" >&2; exit 1; }
+        && mkdir -p /cache/kaniko/pma-api
+        && /kaniko/executor
+        --context "dir://$workspace_dir/apps/api"
+        --dockerfile "$dockerfile"
+        --destination "$REGISTRY_ENDPOINT/pma-api:$CI_COMMIT_SHA"
+        --digest-file .image-digest-api
+        --cache-dir /cache/kaniko/pma-api
+        --cache=true
+        --cache-repo "$REGISTRY_ENDPOINT/cache/pma-api"
+        --cache-ttl=168h
+        --push-retry=3
+        --image-download-retry=3
+        --cleanup
+        --insecure
     depends_on:
       - verify
     when:
@@ -70,40 +64,34 @@ steps:
     entrypoint:
       - /busybox/sh
       - -c
-      - |
+      - >-
         set -euo pipefail
-        : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
-
-        workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
-        dockerfile="$workspace_dir/apps/web/Dockerfile.web"
-        if [ ! -f "$dockerfile" ]; then
-          echo "Dockerfile not found at $dockerfile" >&2
-          exit 1
-        fi
-
-        mkdir -p /cache/kaniko/pma-web
-
-        /kaniko/executor \
-          --context "dir://$workspace_dir" \
-          --dockerfile "$dockerfile" \
-          --destination "$REGISTRY_ENDPOINT/pma-web:$CI_COMMIT_SHA" \
-          --digest-file .image-digest-web \
-          --build-arg "VITE_API_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_WEB_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_ADMIN_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_ADMIN_BASE_PATH=/god-mode" \
-          --build-arg "VITE_SPACE_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_SPACE_BASE_PATH=/spaces" \
-          --build-arg "VITE_LIVE_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_LIVE_BASE_PATH=/live" \
-          --cache-dir /cache/kaniko/pma-web \
-          --cache=true \
-          --cache-repo "$REGISTRY_ENDPOINT/cache/pma-web" \
-          --cache-ttl=168h \
-          --push-retry=3 \
-          --image-download-retry=3 \
-          --cleanup \
-          --insecure
+        && : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
+        && workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
+        && dockerfile="$workspace_dir/apps/web/Dockerfile.web"
+        && [ -f "$dockerfile" ] || { echo "Dockerfile not found at $dockerfile" >&2; exit 1; }
+        && mkdir -p /cache/kaniko/pma-web
+        && /kaniko/executor
+        --context "dir://$workspace_dir"
+        --dockerfile "$dockerfile"
+        --destination "$REGISTRY_ENDPOINT/pma-web:$CI_COMMIT_SHA"
+        --digest-file .image-digest-web
+        --build-arg "VITE_API_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_WEB_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_ADMIN_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_ADMIN_BASE_PATH=/god-mode"
+        --build-arg "VITE_SPACE_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_SPACE_BASE_PATH=/spaces"
+        --build-arg "VITE_LIVE_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_LIVE_BASE_PATH=/live"
+        --cache-dir /cache/kaniko/pma-web
+        --cache=true
+        --cache-repo "$REGISTRY_ENDPOINT/cache/pma-web"
+        --cache-ttl=168h
+        --push-retry=3
+        --image-download-retry=3
+        --cleanup
+        --insecure
     depends_on:
       - verify
     when:
@@ -119,40 +107,34 @@ steps:
     entrypoint:
       - /busybox/sh
       - -c
-      - |
+      - >-
         set -euo pipefail
-        : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
-
-        workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
-        dockerfile="$workspace_dir/apps/admin/Dockerfile.admin"
-        if [ ! -f "$dockerfile" ]; then
-          echo "Dockerfile not found at $dockerfile" >&2
-          exit 1
-        fi
-
-        mkdir -p /cache/kaniko/pma-admin
-
-        /kaniko/executor \
-          --context "dir://$workspace_dir" \
-          --dockerfile "$dockerfile" \
-          --destination "$REGISTRY_ENDPOINT/pma-admin:$CI_COMMIT_SHA" \
-          --digest-file .image-digest-admin \
-          --build-arg "VITE_API_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_WEB_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_ADMIN_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_ADMIN_BASE_PATH=/god-mode" \
-          --build-arg "VITE_SPACE_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_SPACE_BASE_PATH=/spaces" \
-          --build-arg "VITE_LIVE_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_LIVE_BASE_PATH=/live" \
-          --cache-dir /cache/kaniko/pma-admin \
-          --cache=true \
-          --cache-repo "$REGISTRY_ENDPOINT/cache/pma-admin" \
-          --cache-ttl=168h \
-          --push-retry=3 \
-          --image-download-retry=3 \
-          --cleanup \
-          --insecure
+        && : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
+        && workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
+        && dockerfile="$workspace_dir/apps/admin/Dockerfile.admin"
+        && [ -f "$dockerfile" ] || { echo "Dockerfile not found at $dockerfile" >&2; exit 1; }
+        && mkdir -p /cache/kaniko/pma-admin
+        && /kaniko/executor
+        --context "dir://$workspace_dir"
+        --dockerfile "$dockerfile"
+        --destination "$REGISTRY_ENDPOINT/pma-admin:$CI_COMMIT_SHA"
+        --digest-file .image-digest-admin
+        --build-arg "VITE_API_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_WEB_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_ADMIN_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_ADMIN_BASE_PATH=/god-mode"
+        --build-arg "VITE_SPACE_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_SPACE_BASE_PATH=/spaces"
+        --build-arg "VITE_LIVE_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_LIVE_BASE_PATH=/live"
+        --cache-dir /cache/kaniko/pma-admin
+        --cache=true
+        --cache-repo "$REGISTRY_ENDPOINT/cache/pma-admin"
+        --cache-ttl=168h
+        --push-retry=3
+        --image-download-retry=3
+        --cleanup
+        --insecure
     depends_on:
       - verify
     when:
@@ -168,40 +150,34 @@ steps:
     entrypoint:
       - /busybox/sh
       - -c
-      - |
+      - >-
         set -euo pipefail
-        : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
-
-        workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
-        dockerfile="$workspace_dir/apps/space/Dockerfile.space"
-        if [ ! -f "$dockerfile" ]; then
-          echo "Dockerfile not found at $dockerfile" >&2
-          exit 1
-        fi
-
-        mkdir -p /cache/kaniko/pma-space
-
-        /kaniko/executor \
-          --context "dir://$workspace_dir" \
-          --dockerfile "$dockerfile" \
-          --destination "$REGISTRY_ENDPOINT/pma-space:$CI_COMMIT_SHA" \
-          --digest-file .image-digest-space \
-          --build-arg "VITE_API_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_WEB_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_ADMIN_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_ADMIN_BASE_PATH=/god-mode" \
-          --build-arg "VITE_SPACE_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_SPACE_BASE_PATH=/spaces" \
-          --build-arg "VITE_LIVE_BASE_URL=https://pma.rotexai.com" \
-          --build-arg "VITE_LIVE_BASE_PATH=/live" \
-          --cache-dir /cache/kaniko/pma-space \
-          --cache=true \
-          --cache-repo "$REGISTRY_ENDPOINT/cache/pma-space" \
-          --cache-ttl=168h \
-          --push-retry=3 \
-          --image-download-retry=3 \
-          --cleanup \
-          --insecure
+        && : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
+        && workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
+        && dockerfile="$workspace_dir/apps/space/Dockerfile.space"
+        && [ -f "$dockerfile" ] || { echo "Dockerfile not found at $dockerfile" >&2; exit 1; }
+        && mkdir -p /cache/kaniko/pma-space
+        && /kaniko/executor
+        --context "dir://$workspace_dir"
+        --dockerfile "$dockerfile"
+        --destination "$REGISTRY_ENDPOINT/pma-space:$CI_COMMIT_SHA"
+        --digest-file .image-digest-space
+        --build-arg "VITE_API_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_WEB_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_ADMIN_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_ADMIN_BASE_PATH=/god-mode"
+        --build-arg "VITE_SPACE_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_SPACE_BASE_PATH=/spaces"
+        --build-arg "VITE_LIVE_BASE_URL=https://pma.rotexai.com"
+        --build-arg "VITE_LIVE_BASE_PATH=/live"
+        --cache-dir /cache/kaniko/pma-space
+        --cache=true
+        --cache-repo "$REGISTRY_ENDPOINT/cache/pma-space"
+        --cache-ttl=168h
+        --push-retry=3
+        --image-download-retry=3
+        --cleanup
+        --insecure
     depends_on:
       - verify
     when:
@@ -217,32 +193,26 @@ steps:
     entrypoint:
       - /busybox/sh
       - -c
-      - |
+      - >-
         set -euo pipefail
-        : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
-
-        workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
-        dockerfile="$workspace_dir/apps/live/Dockerfile.live"
-        if [ ! -f "$dockerfile" ]; then
-          echo "Dockerfile not found at $dockerfile" >&2
-          exit 1
-        fi
-
-        mkdir -p /cache/kaniko/pma-live
-
-        /kaniko/executor \
-          --context "dir://$workspace_dir" \
-          --dockerfile "$dockerfile" \
-          --destination "$REGISTRY_ENDPOINT/pma-live:$CI_COMMIT_SHA" \
-          --digest-file .image-digest-live \
-          --cache-dir /cache/kaniko/pma-live \
-          --cache=true \
-          --cache-repo "$REGISTRY_ENDPOINT/cache/pma-live" \
-          --cache-ttl=168h \
-          --push-retry=3 \
-          --image-download-retry=3 \
-          --cleanup \
-          --insecure
+        && : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
+        && workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
+        && dockerfile="$workspace_dir/apps/live/Dockerfile.live"
+        && [ -f "$dockerfile" ] || { echo "Dockerfile not found at $dockerfile" >&2; exit 1; }
+        && mkdir -p /cache/kaniko/pma-live
+        && /kaniko/executor
+        --context "dir://$workspace_dir"
+        --dockerfile "$dockerfile"
+        --destination "$REGISTRY_ENDPOINT/pma-live:$CI_COMMIT_SHA"
+        --digest-file .image-digest-live
+        --cache-dir /cache/kaniko/pma-live
+        --cache=true
+        --cache-repo "$REGISTRY_ENDPOINT/cache/pma-live"
+        --cache-ttl=168h
+        --push-retry=3
+        --image-download-retry=3
+        --cleanup
+        --insecure
     depends_on:
       - verify
     when:
