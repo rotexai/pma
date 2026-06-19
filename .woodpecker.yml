@@ -1,0 +1,363 @@
+volumes:
+  - name: ci-cache
+    persistentVolumeClaim:
+      claimName: ci-cache
+
+steps:
+  - name: verify
+    image: node:22-alpine
+    environment:
+      npm_config_cache: /cache/npm
+    volumes:
+      - name: ci-cache
+        path: /cache
+    commands:
+      - corepack enable
+      - corepack prepare pnpm@latest --activate
+      - pnpm install --frozen-lockfile
+      - pnpm check
+    when:
+      event:
+        - push
+        - pull_request
+
+  - name: publish-api
+    image: gcr.io/kaniko-project/executor:debug
+    volumes:
+      - name: ci-cache
+        path: /cache
+    entrypoint:
+      - /busybox/sh
+      - -c
+      - |
+        set -euo pipefail
+        : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
+
+        workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
+        dockerfile="$workspace_dir/apps/api/Dockerfile.api"
+        if [ ! -f "$dockerfile" ]; then
+          echo "Dockerfile not found at $dockerfile" >&2
+          exit 1
+        fi
+
+        mkdir -p /cache/kaniko/pma-api
+
+        /kaniko/executor \
+          --context "dir://$workspace_dir/apps/api" \
+          --dockerfile "$dockerfile" \
+          --destination "$REGISTRY_ENDPOINT/pma-api:$CI_COMMIT_SHA" \
+          --digest-file .image-digest-api \
+          --cache-dir /cache/kaniko/pma-api \
+          --cache=true \
+          --cache-repo "$REGISTRY_ENDPOINT/cache/pma-api" \
+          --cache-ttl=168h \
+          --push-retry=3 \
+          --image-download-retry=3 \
+          --cleanup \
+          --insecure
+    depends_on:
+      - verify
+    when:
+      branch: main
+      event:
+        - push
+
+  - name: publish-web
+    image: gcr.io/kaniko-project/executor:debug
+    volumes:
+      - name: ci-cache
+        path: /cache
+    entrypoint:
+      - /busybox/sh
+      - -c
+      - |
+        set -euo pipefail
+        : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
+
+        workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
+        dockerfile="$workspace_dir/apps/web/Dockerfile.web"
+        if [ ! -f "$dockerfile" ]; then
+          echo "Dockerfile not found at $dockerfile" >&2
+          exit 1
+        fi
+
+        mkdir -p /cache/kaniko/pma-web
+
+        /kaniko/executor \
+          --context "dir://$workspace_dir" \
+          --dockerfile "$dockerfile" \
+          --destination "$REGISTRY_ENDPOINT/pma-web:$CI_COMMIT_SHA" \
+          --digest-file .image-digest-web \
+          --build-arg "VITE_API_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_WEB_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_ADMIN_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_ADMIN_BASE_PATH=/god-mode" \
+          --build-arg "VITE_SPACE_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_SPACE_BASE_PATH=/spaces" \
+          --build-arg "VITE_LIVE_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_LIVE_BASE_PATH=/live" \
+          --cache-dir /cache/kaniko/pma-web \
+          --cache=true \
+          --cache-repo "$REGISTRY_ENDPOINT/cache/pma-web" \
+          --cache-ttl=168h \
+          --push-retry=3 \
+          --image-download-retry=3 \
+          --cleanup \
+          --insecure
+    depends_on:
+      - verify
+    when:
+      branch: main
+      event:
+        - push
+
+  - name: publish-admin
+    image: gcr.io/kaniko-project/executor:debug
+    volumes:
+      - name: ci-cache
+        path: /cache
+    entrypoint:
+      - /busybox/sh
+      - -c
+      - |
+        set -euo pipefail
+        : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
+
+        workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
+        dockerfile="$workspace_dir/apps/admin/Dockerfile.admin"
+        if [ ! -f "$dockerfile" ]; then
+          echo "Dockerfile not found at $dockerfile" >&2
+          exit 1
+        fi
+
+        mkdir -p /cache/kaniko/pma-admin
+
+        /kaniko/executor \
+          --context "dir://$workspace_dir" \
+          --dockerfile "$dockerfile" \
+          --destination "$REGISTRY_ENDPOINT/pma-admin:$CI_COMMIT_SHA" \
+          --digest-file .image-digest-admin \
+          --build-arg "VITE_API_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_WEB_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_ADMIN_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_ADMIN_BASE_PATH=/god-mode" \
+          --build-arg "VITE_SPACE_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_SPACE_BASE_PATH=/spaces" \
+          --build-arg "VITE_LIVE_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_LIVE_BASE_PATH=/live" \
+          --cache-dir /cache/kaniko/pma-admin \
+          --cache=true \
+          --cache-repo "$REGISTRY_ENDPOINT/cache/pma-admin" \
+          --cache-ttl=168h \
+          --push-retry=3 \
+          --image-download-retry=3 \
+          --cleanup \
+          --insecure
+    depends_on:
+      - verify
+    when:
+      branch: main
+      event:
+        - push
+
+  - name: publish-space
+    image: gcr.io/kaniko-project/executor:debug
+    volumes:
+      - name: ci-cache
+        path: /cache
+    entrypoint:
+      - /busybox/sh
+      - -c
+      - |
+        set -euo pipefail
+        : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
+
+        workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
+        dockerfile="$workspace_dir/apps/space/Dockerfile.space"
+        if [ ! -f "$dockerfile" ]; then
+          echo "Dockerfile not found at $dockerfile" >&2
+          exit 1
+        fi
+
+        mkdir -p /cache/kaniko/pma-space
+
+        /kaniko/executor \
+          --context "dir://$workspace_dir" \
+          --dockerfile "$dockerfile" \
+          --destination "$REGISTRY_ENDPOINT/pma-space:$CI_COMMIT_SHA" \
+          --digest-file .image-digest-space \
+          --build-arg "VITE_API_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_WEB_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_ADMIN_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_ADMIN_BASE_PATH=/god-mode" \
+          --build-arg "VITE_SPACE_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_SPACE_BASE_PATH=/spaces" \
+          --build-arg "VITE_LIVE_BASE_URL=https://pma.rotexai.com" \
+          --build-arg "VITE_LIVE_BASE_PATH=/live" \
+          --cache-dir /cache/kaniko/pma-space \
+          --cache=true \
+          --cache-repo "$REGISTRY_ENDPOINT/cache/pma-space" \
+          --cache-ttl=168h \
+          --push-retry=3 \
+          --image-download-retry=3 \
+          --cleanup \
+          --insecure
+    depends_on:
+      - verify
+    when:
+      branch: main
+      event:
+        - push
+
+  - name: publish-live
+    image: gcr.io/kaniko-project/executor:debug
+    volumes:
+      - name: ci-cache
+        path: /cache
+    entrypoint:
+      - /busybox/sh
+      - -c
+      - |
+        set -euo pipefail
+        : "$${REGISTRY_ENDPOINT:?REGISTRY_ENDPOINT is not set}"
+
+        workspace_dir="$${CI_WORKSPACE:-$(pwd)}"
+        dockerfile="$workspace_dir/apps/live/Dockerfile.live"
+        if [ ! -f "$dockerfile" ]; then
+          echo "Dockerfile not found at $dockerfile" >&2
+          exit 1
+        fi
+
+        mkdir -p /cache/kaniko/pma-live
+
+        /kaniko/executor \
+          --context "dir://$workspace_dir" \
+          --dockerfile "$dockerfile" \
+          --destination "$REGISTRY_ENDPOINT/pma-live:$CI_COMMIT_SHA" \
+          --digest-file .image-digest-live \
+          --cache-dir /cache/kaniko/pma-live \
+          --cache=true \
+          --cache-repo "$REGISTRY_ENDPOINT/cache/pma-live" \
+          --cache-ttl=168h \
+          --push-retry=3 \
+          --image-download-retry=3 \
+          --cleanup \
+          --insecure
+    depends_on:
+      - verify
+    when:
+      branch: main
+      event:
+        - push
+
+  - name: update-manifest
+    image: alpine/git:2.49.1
+    depends_on:
+      - publish-api
+      - publish-web
+      - publish-admin
+      - publish-space
+      - publish-live
+    environment:
+      GITOPS_TOKEN:
+        from_secret: GITOPS_TOKEN
+    commands:
+      - |
+        set -eu
+        : "$${GITOPS_TOKEN:?GITOPS_TOKEN is not set}"
+
+        workspace_dir="$(pwd)"
+        workdir="$(mktemp -d)"
+        trap 'rm -rf "$workdir"' EXIT
+
+        git clone \
+          "https://x-access-token:$${GITOPS_TOKEN}@github.com/rotexai/manifest.git" \
+          "$workdir/manifest"
+        cd "$workdir/manifest"
+
+        git config user.name "woodpecker"
+        git config user.email "woodpecker@rotexai.com"
+
+        set_image_digest() {
+          file="$1"
+          image_name="$2"
+          digest="$3"
+          tmp="$(mktemp)"
+          awk -v image_name="$image_name" -v digest="$digest" '
+            {
+              line = $0
+              match(line, /^[[:space:]]*/)
+              indent = substr(line, RSTART, RLENGTH)
+              stripped = substr(line, RLENGTH + 1)
+
+              if (in_target && length(indent) <= target_indent && stripped !~ /^$/) {
+                in_target = 0
+              }
+
+              if (stripped ~ /^- name:[[:space:]]*/) {
+                entry_name = stripped
+                sub(/^- name:[[:space:]]*/, "", entry_name)
+                if (entry_name == image_name) {
+                  in_target = 1
+                  target_indent = length(indent)
+                  found_target = 1
+                  seen_digest = 0
+                }
+              }
+
+              if (in_target && stripped ~ /^digest:/) {
+                if (!seen_digest) {
+                  print indent "digest: " digest
+                  seen_digest = 1
+                }
+                next
+              }
+
+              print line
+
+              if (in_target && stripped ~ /^newName:/ && !seen_digest) {
+                print indent "digest: " digest
+                seen_digest = 1
+              }
+            }
+            END {
+              if (!found_target || !seen_digest) {
+                exit 1
+              }
+            }
+          ' "$file" > "$tmp" && mv "$tmp" "$file"
+        }
+
+        manifest_file="./clusters/rum/pma/kustomization.yaml"
+        if [ ! -f "$manifest_file" ]; then
+          echo "Could not find pma kustomization in manifest repo" >&2
+          exit 1
+        fi
+
+        images="api web admin space live"
+        for img in $images; do
+          digest_file="$workspace_dir/.image-digest-$img"
+          if [ ! -f "$digest_file" ]; then
+            echo "Image digest file for pma-$img not found" >&2
+            exit 1
+          fi
+          digest="$(tr -d '\r\n' < "$digest_file")"
+          if [ -z "$digest" ]; then
+            echo "Image digest for pma-$img is empty" >&2
+            exit 1
+          fi
+          set_image_digest "$manifest_file" "pma-$img" "$digest"
+        done
+
+        if git diff --quiet -- "$manifest_file"; then
+          echo "Manifest already up to date; nothing to push."
+          exit 0
+        fi
+
+        git add "$manifest_file"
+        git commit -m "chore(pma): promote images to $(echo $CI_COMMIT_SHA | head -c 8)"
+        git push origin main
+    when:
+      branch: main
+      event:
+        - push
