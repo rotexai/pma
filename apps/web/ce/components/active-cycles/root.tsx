@@ -40,12 +40,7 @@ export const WorkspaceActiveCyclesRoot = observer(function WorkspaceActiveCycles
   return (
     <ContentWrapper className="gap-0">
       {workspaceProjectIds.map((projectId) => (
-        <ActiveCycleRoot
-          key={projectId}
-          workspaceSlug={workspaceSlug.toString()}
-          projectId={projectId}
-          showHeader
-        />
+        <ActiveCycleRoot key={projectId} workspaceSlug={workspaceSlug.toString()} projectId={projectId} showHeader />
       ))}
     </ContentWrapper>
   );
