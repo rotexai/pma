@@ -1,10 +1,6 @@
 steps:
   - name: verify
     image: node:22-alpine
-    environment:
-      npm_config_cache: /cache/npm
-    volumes:
-      - ci-cache:/cache
     commands:
       - corepack enable
       - corepack prepare pnpm@latest --activate
