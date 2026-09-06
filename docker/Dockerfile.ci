@@ -16,7 +16,7 @@ ARG VIKUNJA_VERSION=v2.6.0
 FROM alpine/git:2.47.2 AS source
 ARG VIKUNJA_VERSION
 WORKDIR /src
-RUN git clone --branch "${VIKUNJA_VERSION}" --depth 1 https://code.vikunja.io/vikunja.git .
+RUN git clone --branch "${VIKUNJA_VERSION}" --depth 1 https://github.com/go-vikunja/vikunja.git .
 
 FROM --platform=$BUILDPLATFORM node:24.20.0-alpine AS frontendbuilder
 WORKDIR /build
