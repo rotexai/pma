@@ -1,0 +1,71 @@
+# syntax=docker/dockerfile:1
+#
+# Builds Vikunja (https://vikunja.io) from a pinned upstream tag, with one
+# change from their own Dockerfile: VIKUNJA_FRONTEND_BASE is set before the
+# frontend build so the built JS router/assets expect to be served from
+# /pma/ instead of /. Vikunja's frontend base path is baked in at build time
+# (not configurable at runtime), so this can't be done via env vars on the
+# stock vikunja/vikunja image - see README.md.
+#
+# Everything else mirrors go-vikunja/vikunja's own Dockerfile stage-for-stage;
+# only the source of the COPY commands changes (cloned tag instead of local
+# build context) and the two lines marked "pma:" below.
+
+ARG VIKUNJA_VERSION=v2.6.0
+
+FROM alpine/git:2.47.2 AS source
+ARG VIKUNJA_VERSION
+WORKDIR /src
+RUN git clone --branch "${VIKUNJA_VERSION}" --depth 1 https://code.vikunja.io/vikunja.git .
+
+FROM --platform=$BUILDPLATFORM node:24.20.0-alpine AS frontendbuilder
+WORKDIR /build
+ENV PNPM_CACHE_FOLDER=.cache/pnpm/
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV CYPRESS_INSTALL_BINARY=0
+# pma: bake the /pma/ subpath into the frontend build.
+ENV VIKUNJA_FRONTEND_BASE=/pma/
+COPY --from=source /src/frontend/pnpm-lock.yaml /src/frontend/package.json /src/frontend/pnpm-workspace.yaml ./
+RUN npm install -g corepack && corepack enable && \
+    pnpm install --frozen-lockfile
+COPY --from=source /src/frontend/ ./
+ARG VIKUNJA_VERSION
+RUN echo "{\"VERSION\": \"${VIKUNJA_VERSION}\"}" > src/version.json && pnpm run build
+
+FROM --platform=$BUILDPLATFORM ghcr.io/techknowlogick/xgo:go-1.27.x AS apibuilder
+RUN go install github.com/magefile/mage@latest && \
+    mv /go/bin/mage /usr/local/go/bin
+
+WORKDIR /go/src/code.vikunja.io/api
+COPY --from=source /src/ ./
+COPY --from=frontendbuilder /build/dist ./frontend/dist
+
+ARG TARGETOS TARGETARCH TARGETVARIANT
+ARG VIKUNJA_VERSION
+ENV RELEASE_VERSION=$VIKUNJA_VERSION
+
+RUN export PATH=$PATH:$GOPATH/bin && \
+	mage build:clean && \
+    (cd build && mage release:xgo vikunja "${TARGETOS}/${TARGETARCH}/${TARGETVARIANT}")
+
+RUN mkdir -p /tmp && chmod 1777 /tmp
+
+FROM scratch
+
+LABEL org.opencontainers.image.title='pma'
+LABEL org.opencontainers.image.description='Vikunja, built with /pma/ as its frontend base path'
+LABEL org.opencontainers.image.source='https://code.vikunja.io/vikunja'
+LABEL org.opencontainers.image.licenses='AGPLv3'
+
+WORKDIR /app/vikunja
+ENTRYPOINT [ "/app/vikunja/vikunja" ]
+EXPOSE 3456
+
+COPY --from=apibuilder --chown=1000:1000 --chmod=1777 /tmp /tmp
+
+USER 1000
+
+ENV VIKUNJA_SERVICE_ROOTPATH=/app/vikunja/
+
+COPY --from=apibuilder /build/vikunja-* vikunja
+COPY --from=apibuilder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
