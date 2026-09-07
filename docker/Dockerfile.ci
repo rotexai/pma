@@ -1,15 +1,24 @@
 # syntax=docker/dockerfile:1
 #
 # Builds Vikunja (https://vikunja.io) from a pinned upstream tag, with one
-# change from their own Dockerfile: VIKUNJA_FRONTEND_BASE is set before the
-# frontend build so the built JS router/assets expect to be served from
-# /pma/ instead of /. Vikunja's frontend base path is baked in at build time
-# (not configurable at runtime), so this can't be done via env vars on the
-# stock vikunja/vikunja image - see README.md.
+# change: VIKUNJA_FRONTEND_BASE is set before the frontend build so the
+# built JS router/assets expect to be served from /pma/ instead of /.
+# Vikunja's frontend base path is baked in at build time (not configurable
+# at runtime), so this can't be done via env vars on the stock
+# vikunja/vikunja image - see README.md.
 #
-# Everything else mirrors go-vikunja/vikunja's own Dockerfile stage-for-stage;
-# only the source of the COPY commands changes (cloned tag instead of local
-# build context) and the two lines marked "pma:" below.
+# Unlike upstream's own Dockerfile, this does NOT use their xgo-based
+# cross-compile stage (ghcr.io/techknowlogick/xgo) - that image's internal
+# build/cleanup script reliably fails under Kaniko (a `chown /build: no
+# such file or directory` from its own wrapper, verified locally: the
+# actual `go build` step works fine, xgo's post-build ownership fixup
+# doesn't run cleanly in Kaniko's exec environment). xgo exists to support
+# CGO cross-compilation to many OS/arch targets; we only need linux/amd64
+# for this cluster and don't need CGO (Vikunja's sqlite driver is
+# cgo-based, but we run Postgres, and a plain `CGO_ENABLED=0 go build`
+# compiles the full tree fine - the sqlite driver package still builds,
+# it just can't be selected as VIKUNJA_DATABASE_TYPE at runtime). A plain
+# `golang:1.27-alpine` build stage sidesteps the whole issue.
 
 ARG VIKUNJA_VERSION=v2.6.0
 
@@ -32,21 +41,20 @@ COPY --from=source /src/frontend/ ./
 ARG VIKUNJA_VERSION
 RUN echo "{\"VERSION\": \"${VIKUNJA_VERSION}\"}" > src/version.json && pnpm run build
 
-FROM --platform=$BUILDPLATFORM ghcr.io/techknowlogick/xgo:go-1.27.x AS apibuilder
-RUN go install github.com/magefile/mage@latest && \
-    mv /go/bin/mage /usr/local/go/bin
-
+FROM golang:1.27-alpine AS apibuilder
 WORKDIR /go/src/code.vikunja.io/api
 COPY --from=source /src/ ./
 COPY --from=frontendbuilder /build/dist ./frontend/dist
 
-ARG TARGETOS TARGETARCH TARGETVARIANT
 ARG VIKUNJA_VERSION
-ENV RELEASE_VERSION=$VIKUNJA_VERSION
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
 
-RUN export PATH=$PATH:$GOPATH/bin && \
-	mage build:clean && \
-    (cd build && mage release:xgo vikunja "${TARGETOS}/${TARGETARCH}/${TARGETVARIANT}")
+RUN go build \
+      -ldflags "-X \"code.vikunja.io/api/pkg/version.Version=${VIKUNJA_VERSION}\" -X \"main.Tags=osusergo netgo\"" \
+      -o /vikunja \
+      .
 
 RUN mkdir -p /tmp && chmod 1777 /tmp
 
@@ -54,7 +62,7 @@ FROM scratch
 
 LABEL org.opencontainers.image.title='pma'
 LABEL org.opencontainers.image.description='Vikunja, built with /pma/ as its frontend base path'
-LABEL org.opencontainers.image.source='https://code.vikunja.io/vikunja'
+LABEL org.opencontainers.image.source='https://github.com/go-vikunja/vikunja'
 LABEL org.opencontainers.image.licenses='AGPLv3'
 
 WORKDIR /app/vikunja
@@ -67,5 +75,5 @@ USER 1000
 
 ENV VIKUNJA_SERVICE_ROOTPATH=/app/vikunja/
 
-COPY --from=apibuilder /build/vikunja-* vikunja
+COPY --from=apibuilder /vikunja vikunja
 COPY --from=apibuilder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
